@@ -1,11 +1,9 @@
 # Big Vision
 
-This codebase is designed for training large-scale vision models using
-[Cloud TPU VMs](https://cloud.google.com/blog/products/compute/introducing-cloud-tpu-vms)
-or GPU machines. It is based on [Jax](https://github.com/jax-ml/jax)/[Flax](https://github.com/google/flax)
-libraries, and uses [tf.data](https://www.tensorflow.org/guide/data) and
-[TensorFlow Datasets](https://www.tensorflow.org/datasets) for scalable and
-reproducible input pipelines.
+这个代码库旨在用于在
+[Cloud TPU VMs](https://cloud.google.com/blog/products/compute/introducing-cloud-tpu-vms)或 GPU 机器 上训练大规模视觉模型。它基于 [Jax](https://github.com/jax-ml/jax)/[Flax](https://github.com/google/flax)
+库构建,并使用 [tf.data](https://www.tensorflow.org/guide/data) 和
+[TensorFlow Datasets](https://www.tensorflow.org/datasets) 来实现可扩展且可复现的数据输入管线。
 
 The open-sourcing of this codebase has two main purposes:
 1. Publishing the code of research projects developed in this codebase (see a
