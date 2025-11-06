@@ -115,88 +115,125 @@
 
 ### Misc
 
+**杂项研究**
+
 - [Are we done with ImageNet?](https://arxiv.org/abs/2006.07159), by
   Lucas Beyer*, Olivier J. Hénaff*, Alexander Kolesnikov*, Xiaohua Zhai*, Aäron van den Oord*.
 - [No Filter: Cultural and Socioeconomic Diversity in Contrastive Vision-Language Models](https://arxiv.org/abs/2405.13777), by
   Angéline Pouget, Lucas Beyer, Emanuele Bugliarello, Xiao Wang, Andreas Peter Steiner, Xiaohua Zhai, Ibrahim Alabdulmohsin.
 
-# Codebase high-level organization and principles in a nutshell
+# 代码库的高层组织与核心原则（简述）
 
-The main entry point is a trainer module, which typically does all the
-boilerplate related to creating a model and an optimizer, loading the data,
-checkpointing and training/evaluating the model inside a loop. We provide the
-canonical trainer `train.py` in the root folder. Normally, individual projects
-within `big_vision` fork and customize this trainer.
+主要的入口点是一个 训练器模块（trainer module），它通常负责所有与训练流程相关的基础工作，包括：
 
-All models, evaluators and preprocessing operations live in the corresponding
-subdirectories and can often be reused between different projects. We encourage
-compatible APIs within these directories to facilitate reusability, but it is
-not strictly enforced, as individual projects may need to introduce their custom
-APIs.
+创建模型与优化器；
 
-We have a powerful configuration system, with the configs living in the
-`configs/` directory. Custom trainers and modules can directly extend/modify
-the configuration options.
+加载数据；
 
-Project-specific code resides in the `.../proj/...` namespace. It is not always
-possible to keep project-specific in sync with the core `big_vision` libraries,
-Below we provide the [last known commit](#project-specific-commits)
-for each project where the project code is expected to work.
+保存与恢复检查点（checkpoint）；
 
-Training jobs are robust to interruptions and will resume seamlessly from the
-last saved checkpoint (assuming a user provides the correct `--workdir` path).
+在循环中执行模型的训练与评估。
 
-Each configuration file contains a comment at the top with a `COMMAND` snippet
-to run it, and some hint of expected runtime and results. See below for more
-details, but generally speaking, running on a GPU machine involves calling
-`python -m COMMAND` while running on TPUs, including multi-host, involves
+我们在项目根目录中提供了一个标准训练器文件 `train.py`， 通常，  `big_vision` 中的各个独立项目都会基于它进行 分支（fork）和定制。
 
+所有的 模型（models）、评估器（evaluators） 和 预处理操作（preprocessing operations）
+都位于各自对应的子目录中，并且通常可以在不同项目之间复用。
+我们鼓励这些目录下的模块使用统一的 API 接口以提高可复用性，
+但这并不是强制要求的 —— 因为某些项目可能需要引入自定义 API。
+
+我们拥有一个功能强大的配置系统（configuration system）, 所有配置文件都位于
+`configs/` 目录中. 自定义的训练器或模块可以直接扩展或修改这些配置选项，
+以实现不同项目的灵活适配。
+
+项目特定的代码位于 `.../proj/...` 命名空间中。由于各个项目之间存在差异，无法保证项目特定代码始终与核心 `big_vision` 库保持同步。
+因此，我们在下方提供了每个项目的 [last known commit](#project-specific-commits)
+用户可以参考该版本以确保项目代码能正常工作。
+
+训练任务具有 容错与恢复功能：
+如果训练被中断，只要用户提供正确的 `--workdir` 路径，
+系统就能无缝地从上次保存的检查点（checkpoint）恢复训练。
+
+每个配置文件（configuration file）顶部都会包含一段注释，其中有：
+
+一个可直接运行的 `COMMAND` 命令示例；
+
+以及该配置对应的 预期运行时间 和 实验结果提示。
+
+通常情况下：
+
+在 GPU 机器上运行时，可以使用命令：
+`python -m COMMAND`
+
+
+在 TPU（包括多主机）上运行时，使用命令：
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all
   --command "bash big_vision/run_tpu.sh COMMAND"
 ```
 
-See instructions below for more details on how to run `big_vision` code on a
-GPU machine or Google Cloud TPU.
+有关如何在 GPU 机器或 Google Cloud TPU 上运行 `big_vision` 代码的更多细节，
+请参考下方的运行说明。
 
-By default we write checkpoints and logfiles. The logfiles are a list of JSON
-objects, and we provide a short and straightforward [example colab to read
-and display the logs and checkpoints](https://colab.research.google.com/drive/1R_lvV542WUp8Q2y8sbyooZOGCplkn7KI?usp=sharing).
+默认情况下，系统会生成 检查点（checkpoints） 和 日志文件（logfiles）。
+日志文件以 JSON 对象列表 的形式保存，
+我们还提供了一个简单的Colab示例 [example colab to read
+and display the logs and checkpoints](https://colab.research.google.com/drive/1R_lvV542WUp8Q2y8sbyooZOGCplkn7KI?usp=sharing)演示如何读取和可视化这些日志与检查点。
 
-# Current and future contents
+# 当前与未来内容
 
-The first release contains the core part of pre-training, transferring, and
-evaluating classification models at scale on Cloud TPU VMs.
+当前版本内容
 
-We have since added the following key features and projects:
-- Contrastive Image-Text model training and evaluation as in LiT and CLIP.
-- Patient and consistent distillation.
-- Scaling ViT.
-- MLP-Mixer.
-- UViM.
+首个版本主要包含以下核心功能：
+✅ 在 Cloud TPU VM 上进行大规模分类模型的预训练、迁移学习与评估，
+即支持完整的端到端训练、微调与验证流程。
 
-Features and projects we plan to release in the near future, in no particular
-order:
-- ImageNet-21k in TFDS.
-- Loading misc public models used in our publications (NFNet, MoCov3, DINO).
-- Memory-efficient Polyak-averaging implementation.
-- Advanced JAX compute and memory profiling. We are using internal tools for
-    this, but may eventually add support for the publicly available ones.
+后续新增的主要功能与项目
 
-We will continue releasing code of our future publications developed within
-`big_vision` here.
+我们随后在 big_vision 框架中新增了以下关键特性与研究项目：
 
-### Non-content
+🧩 图文对比模型的训练与评估（如 LiT 与 CLIP）；
 
-The following exist in the internal variant of this codebase, and there is no
-plan for their release:
-- Regular regression tests for both quality and speed. They rely heavily on
-    internal infrastructure.
-- Advanced logging, monitoring, and plotting of experiments. This also relies
-    heavily on internal infrastructure. However, we are open to ideas on this
-    and may add some in the future, especially if implemented in a
-    self-contained manner.
-- Not yet published, ongoing research projects.
+🔁 稳定一致的知识蒸馏（distillation）方法；
+
+⚙️ ViT 的可扩展性研究（Scaling ViT）；
+
+🧠 MLP-Mixer 架构支持；
+
+🧩 UViM（Unified Vision Modeling）统一视觉建模框架。
+
+即将发布的功能与项目（计划中）
+
+我们计划在未来版本中陆续开放以下功能（顺序不分先后）：
+
+📦 将 ImageNet-21k 数据集集成至 TFDS（TensorFlow Datasets）；
+
+🔍 支持加载我们论文中使用的其他公共模型（如 NFNet、MoCov3、DINO）；
+
+🧮 高效内存的 Polyak 平均实现（Memory-efficient Polyak averaging）；
+
+⚡ 高级 JAX 计算与内存分析工具：
+当前我们在内部使用专用分析工具，未来计划支持公开版本的性能分析接口。
+
+未来展望
+
+我们将持续在此仓库中发布基于 `big_vision` 框架的最新研究代码，
+以便研究人员复现和扩展我们的最新论文成果。
+
+### 非公开内容（Non-content）
+
+以下内容仅存在于 `big_vision` 内部版本中，
+目前没有公开发布计划：
+
+🧪 质量与速度的常规回归测试：
+这些测试依赖于 Google 的内部基础设施，因此无法在开源版本中提供。
+
+📊 高级实验日志记录、监控与可视化系统：
+同样依赖内部工具链。
+不过我们对改进这一部分保持开放态度，
+如果未来有独立且自包含的实现方案，可能会考虑在后续版本中加入。
+
+🧬 尚未公开的研究项目：
+仍处于内部开发或论文投稿阶段，因此暂不开放。
 
 
 # GPU Setup
