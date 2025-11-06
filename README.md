@@ -236,19 +236,16 @@ and display the logs and checkpoints](https://colab.research.google.com/drive/1R
 仍处于内部开发或论文投稿阶段，因此暂不开放。
 
 
-# GPU Setup
+# GPU Setup(GPU 环境配置)
 
-We first discuss how to setup and run `big_vision` on a (local) GPU machine,
-and then discuss the setup for Cloud TPUs. Note that data preparation step for
-(local) GPU setup can be largely reused for the Cloud TPU setup. While the
-instructions skip this for brevity, we highly recommend using a
-[virtual environment](https://docs.python.org/3/library/venv.html) when
-installing python dependencies.
+本节首先介绍如何在 本地 GPU 机器 上安装与运行 `big_vision` ,随后会讲解如何在 Cloud TPU 上进行设置。
+请注意：
+📦 数据准备步骤（data preparation）在 GPU 环境中完成后，可以直接复用于 Cloud TPU 环境，无需重复操作。 
+另外，出于系统安全与依赖隔离的考虑，强烈建议在安装 Python 依赖时使用[virtual environment](https://docs.python.org/3/library/venv.html) 
 
-## Setting up python packages
+## Setting up python packages(安装 Python 依赖包)
 
-The first step is to checkout `big_vision` and install relevant python
-dependencies:
+首先克隆 `big_vision` 仓库并安装所需依赖：
 
 ```
 git clone https://github.com/google-research/big_vision
@@ -257,76 +254,56 @@ pip3 install --upgrade pip
 pip3 install -r big_vision/requirements.txt
 ```
 
-The latest version of `jax` library can be fetched as
+安装最新版本的 `jax`（支持 GPU 加速）：
 
 ```
 pip3 install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
-You may need a different `jax` package, depending on CUDA and cuDNN libraries
-installed on your machine. Please consult
+⚠️ 注意：你可能需要安装不同版本的 jax，具体取决于你的 CUDA 和 cuDNN 库的版本。请参考官方文档以确定正确版本：
 [official jax documentation](https://github.com/jax-ml/jax#pip-installation-gpu-cuda)
-for more information.
 
-## Preparing tfds data
 
-For unified and reproducible access to standard datasets we opted to use the
-`tensorflow_datasets` (`tfds`) library. It requires each dataset to be
-downloaded, preprocessed and then to be stored on a hard drive (or, if you use
-"Google Cloud", preferably stored in a "GCP bucket".).
+## Preparing tfds data (准备 TFDS 数据集)
 
-Many datasets can be downloaded and preprocessed automatically when used
-for the first time. Nevertheless, we intentionally disable this feature and
-recommend doing dataset preparation step separately, ahead of the first run. It
-will make debugging easier if problems arise and some datasets, like
-`imagenet2012`, require manually downloaded data.
+为了实现对标准数据集的统一和可复现访问，`big_vision` 使用了
+`tensorflow_datasets` (`tfds`) 库来管理数据集。 它要求每个数据集都需要先下载、预处理，然后存储在硬盘上（如果你使用 Google Cloud，则最好存储在 GCP bucket 中）。
+许多数据集在第一次使用时可以自动下载和预处理。 不过，我们特意关闭了这一自动功能，并建议在首次运行前单独执行数据准备步骤。这样如果出现问题，将更容易进行调试，而且某些数据集（如 imagenet2012）需要手动下载数据。
 
-Most of the datasets, e.g. `cifar100`, `oxford_iiit_pet` or `imagenet_v2`
-can be fully automatically downloaded and prepared by running
-
+大多数数据集，例如 `cifar100`、`oxford_iiit_pet` 或 `imagenet_v2`，都可以通过运行以下命令自动下载和准备：
 ```
 cd big_vision/
 python3 -m big_vision.tools.download_tfds_datasets cifar100 oxford_iiit_pet imagenet_v2
 ```
 
-A full list of datasets is available at [this link](https://www.tensorflow.org/datasets/catalog/overview#all_datasets).
+完整的数据集列表可在此链接中查看： [this link](https://www.tensorflow.org/datasets/catalog/overview#all_datasets).
 
-Some datasets, like `imagenet2012` or `imagenet2012_real`, require the data to
-be downloaded manually and placed into `$TFDS_DATA_DIR/downloads/manual/`,
-which defaults to `~/tensorflow_datasets/downloads/manual/`. For example, for
-`imagenet2012` and `imagenet2012_real` one needs to place the official
-`ILSVRC2012_img_train.tar` and `ILSVRC2012_img_val.tar` files in that directory
-and then run
+某些数据集（如  `imagenet2012` 或 `imagenet2012_real`）需要手动下载，并放置在 `$TFDS_DATA_DIR/downloads/manual/` 目录下，默认路径为 `~/tensorflow_datasets/downloads/manual/`。 例如，对于 imagenet2012 和 imagenet2012_real，需要将官方的 `ILSVRC2012_img_train.tar` 和 `ILSVRC2012_img_val.tar` 文件放入该目录，然后运行以下命令：
 `python3 -m big_vision.tools.download_tfds_datasets imagenet2012 imagenet2012_real`
-(which may take ~1 hour).
+该过程可能需要大约 1 小时。
 
-If you use `Google Cloud` and, TPUs in particular, you can then upload
-the preprocessed data (stored in `$TFDS_DATA_DIR`) to
-"Google Cloud Bucket" and use the bucket on any of your (TPU) virtual
-machines to access the data.
+果你使用 Google Cloud，尤其是 TPU，可以将预处理好的数据（保存在 `$TFDS_DATA_DIR` 中）上传到 "Google Cloud Bucket"，并在任意一台 TPU 虚拟机上使用该 bucket 来访问数据。
 
-## Running on a GPU machine
+## Running on a GPU machine(在 GPU 机器上运行)
 
-Finally, after installing all python dependencies and preparing `tfds` data,
-the user can run the job using config of their choice, e.g. to train `ViT-S/16`
-model on ImageNet data, one should run the following command:
+在安装完所有 Python 依赖并准备好 tfds 数据后，
+用户就可以使用自己选择的配置文件运行训练任务。例如，要在 ImageNet 数据上训练 `ViT-S/16` 模型，可以运行以下命令：
 
 ```
 python3 -m big_vision.train --config big_vision/configs/vit_s16_i1k.py --workdir workdirs/`date '+%m-%d_%H%M'`
 ```
 
-or to train MLP-Mixer-B/16, run (note the `gpu8` config param that reduces the default batch size and epoch count):
+或者，要训练 `MLP-Mixer-B/16` 模型，运行以下命令（注意这里的 `gpu8` 参数，它会自动减少默认的批量大小和训练轮数）：
 
 ```
 python3 -m big_vision.train --config big_vision/configs/mlp_mixer_i1k.py:gpu8 --workdir workdirs/`date '+%m-%d_%H%M'`
 ```
 
-# Cloud TPU VM setup
+# Cloud TPU VM setup (Cloud TPU 虚拟机设置)
 
-## Create TPU VMs
+## Create TPU VMs(创建 TPU 虚拟机)
 
-To create a single machine with 8 TPU cores, follow the following Cloud TPU JAX
-document:
+要创建一台包含 8 个 TPU 核心的单机环境，可以参考 Google 官方文档:
 https://cloud.google.com/tpu/docs/run-calculation-jax
 
 To support large-scale vision research, more cores with multiple hosts are
