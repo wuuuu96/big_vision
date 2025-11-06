@@ -5,27 +5,20 @@
 库构建,并使用 [tf.data](https://www.tensorflow.org/guide/data) 和
 [TensorFlow Datasets](https://www.tensorflow.org/datasets) 来实现可扩展且可复现的数据输入管线。
 
-The open-sourcing of this codebase has two main purposes:
-1. Publishing the code of research projects developed in this codebase (see a
-   list below).
-2. Providing a strong starting point for running large-scale vision experiments
-   on GPU machines and Google Cloud TPUs, which should scale seamlessly and
-   out-of-the box from a single TPU core to a distributed setup with up to 2048
-   TPU cores.
+开源该代码库的主要目的有两个：
+1.发布在此代码库中开发的研究项目代码（见下方列表）；
 
-`big_vision` aims to support research projects at Google. We are unlikely to
-work on feature requests or accept external contributions, unless they were
-pre-approved (ask in an issue first). For a well-supported transfer-only
-codebase, see also [vision_transformer](https://github.com/google-research/vision_transformer).
+2.为在 GPU 机器和 Google Cloud TPU 上运行大规模视觉实验提供强大的起点，
+并确保这些实验能够无缝扩展，从单个 TPU 核心到最多 2048 个 TPU 核心的分布式环境，实现开箱即用（out-of-the-box） 的高性能训练。
 
-Note that `big_vision` is quite dynamic codebase and, while we intend to keep
-the core code fully-functional at all times, we can not guarantee timely updates
-of the project-specific code that lives in the `.../proj/...` subfolders.
-However, we provide a [table](#project-specific-commits) with last known
-commits where specific projects were known to work.
+`big_vision` 的目标是支持 Google 内部的研究项目. 我们一般不会响应功能请求或接受外部贡献，除非这些修改已经事先获得批准（请先在 issue 中提出申请）。
+如果你需要一个专注于模型迁移（transfer）且维护良好的代码库，可以参考 [vision_transformer](https://github.com/google-research/vision_transformer).
 
-The following research projects were originally conducted in the `big_vision`
-codebase:
+请注意， `big_vision` 是一个高度动态的代码库。虽然我们会尽力确保核心代码始终可用、功能完整，但无法保证位于 `.../proj/...` 子文件夹中的项目代码能得到及时更新。
+不过，我们提供了一张 [table](#project-specific-commits) 其中列出了各个项目最近一次确认可正常运行的提交版本。
+
+以下研究项目最初都是在 `big_vision`代码库中进行的：
+
 
 ### Architecture research
 
@@ -35,7 +28,7 @@ codebase:
   Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby*
 - [Scaling Vision Transformers](https://arxiv.org/abs/2106.04560), by
   Xiaohua Zhai*, Alexander Kolesnikov*, Neil Houlsby, and Lucas Beyer*\
-  Resources: [config](big_vision/configs/proj/scaling_laws/train_vit_g.py).
+  相关资源(配置文件): [config](big_vision/configs/proj/scaling_laws/train_vit_g.py).
 - [How to train your ViT? Data, Augmentation, and Regularization in Vision Transformers](https://arxiv.org/abs/2106.10270), by
   Andreas Steiner*, Alexander Kolesnikov*, Xiaohua Zhai*, Ross Wightman,
   Jakob Uszkoreit, and Lucas Beyer*
@@ -43,18 +36,18 @@ codebase:
   Ilya Tolstikhin*, Neil Houlsby*, Alexander Kolesnikov*, Lucas Beyer*,
   Xiaohua Zhai, Thomas Unterthiner, Jessica Yung, Andreas Steiner,
   Daniel Keysers, Jakob Uszkoreit, Mario Lucic, Alexey Dosovitskiy\
-  Resources: [config](big_vision/configs/mlp_mixer_i1k.py).
+  相关资源(配置文件): [config](big_vision/configs/mlp_mixer_i1k.py).
 - [Better plain ViT baselines for ImageNet-1k](https://arxiv.org/abs/2205.01580), by
   Lucas Beyer, Xiaohua Zhai, Alexander Kolesnikov\
-  Resources: [config](big_vision/configs/vit_s16_i1k.py)
+  相关资源(配置文件): [config](big_vision/configs/vit_s16_i1k.py)
 - [UViM: A Unified Modeling Approach for Vision with Learned Guiding Codes](https://arxiv.org/abs/2205.10337), by
   Alexander Kolesnikov^*, André Susano Pinto^*, Lucas Beyer*, Xiaohua Zhai*, Jeremiah Harmsen*, Neil Houlsby*\
-  Resources: [readme](big_vision/configs/proj/uvim/README.md), [configs](big_vision/configs/proj/uvim), [colabs](big_vision/configs/proj/uvim).
+  相关资源(配置文件): [readme](big_vision/configs/proj/uvim/README.md), [configs](big_vision/configs/proj/uvim), [colabs](big_vision/configs/proj/uvim).
 - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/abs/2212.08013), by
   Lucas Beyer*, Pavel Izmailov*, Alexander Kolesnikov*, Mathilde Caron*, Simon
   Kornblith*, Xiaohua Zhai*, Matthias Minderer*, Michael Tschannen*, Ibrahim
   Alabdulmohsin*, Filip Pavetic*\
-  Resources: [readme](big_vision/configs/proj/flexivit/README.md), [configs](big_vision/configs/proj/flexivit).
+  相关资源(配置文件): [readme](big_vision/configs/proj/flexivit/README.md), [configs](big_vision/configs/proj/flexivit).
 - [Dual PatchNorm](https://arxiv.org/abs/2302.01327), by Manoj Kumar, Mostafa Dehghani, Neil Houlsby.
 - [Getting ViT in Shape: Scaling Laws for Compute-Optimal Model Design](https://arxiv.org/abs/2305.13035), by
   Ibrahim Alabdulmohsin*, Xiaohua Zhai*, Alexander Kolesnikov, Lucas Beyer*.
@@ -64,7 +57,7 @@ codebase:
   Fabian Mentzer, David Minnen, Eirikur Agustsson, Michael Tschannen.
 - [GIVT: Generative Infinite-Vocabulary Transformers](https://arxiv.org/abs/2312.02116), by
   Michael Tschannen, Cian Eastwood, Fabian Mentzer.\
-  Resources: [readme](big_vision/configs/proj/givt/README.md), [config](big_vision/configs/proj/givt/givt_imagenet2012.py), [colab](https://colab.research.google.com/github/google-research/big_vision/blob/main/big_vision/configs/proj/givt/givt_demo_colab.ipynb).
+   相关资源(配置文件): [readme](big_vision/configs/proj/givt/README.md), [config](big_vision/configs/proj/givt/givt_imagenet2012.py), [colab](https://colab.research.google.com/github/google-research/big_vision/blob/main/big_vision/configs/proj/givt/givt_demo_colab.ipynb).
 - [Unified Auto-Encoding with Masked Diffusion](https://arxiv.org/abs/2406.17688), by
   Philippe Hansen-Estruch, Sriram Vishwanath, Amy Zhang, Manan Tomar.
 - [Jet: A Modern Transformer-Based Normalizing Flow](https://arxiv.org/abs/2412.15129), by
