@@ -306,10 +306,10 @@ python3 -m big_vision.train --config big_vision/configs/mlp_mixer_i1k.py:gpu8 --
 要创建一台包含 8 个 TPU 核心的单机环境，可以参考 Google 官方文档:
 https://cloud.google.com/tpu/docs/run-calculation-jax
 
-To support large-scale vision research, more cores with multiple hosts are
-recommended. Below we provide instructions on how to do it.
+为了支持大规模视觉研究任务，建议使用**多主机（multi-host)+ 多核心（multi-core）**的 TPU 集群。
+下面给出了创建多主机 TPU 的方法。
 
-First, create some useful variables, which we be reused:
+首先，定义一些常用变量（后续命令会复用）:
 
 ```
 export NAME=<a name of the TPU deployment, e.g. my-tpu-machine>
@@ -317,104 +317,144 @@ export ZONE=<GCP geographical zone, e.g. europe-west4-a>
 export GS_BUCKET_NAME=<Name of the storage bucket, e.g. my_bucket>
 ```
 
-The following command line will create TPU VMs with 32 cores,
-4 hosts.
+然后创建一组 32 核（4 台主机）的 TPU 虚拟机
 
 ```
 gcloud compute tpus tpu-vm create $NAME --zone $ZONE --accelerator-type v3-32 --version tpu-ubuntu2204-base
 ```
 
-## Install `big_vision` on TPU VMs
+该命令会在指定区域创建一组 TPU 虚拟机，
+每组共有 4 台主机（host），每台主机有 8 个 TPU 核心，
+总计 32 个 TPU 核心。
 
-Fetch the `big_vision` repository, copy it to all TPU VM hosts, and install
-dependencies.
+## Install `big_vision` on TPU VMs(在 TPU 虚拟机上安装 big_vision)
+
+创建好 TPU 实例后，需要在各个主机上安装 `big_vision`：
+
+1.克隆 big_vision 仓库
+
+2.将其复制到所有 TPU 主机上
+
+3.执行自动安装脚本以配置依赖环境
 
 ```
 git clone https://github.com/google-research/big_vision
 gcloud compute tpus tpu-vm scp --recurse big_vision/big_vision $NAME: --zone=$ZONE --worker=all
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all --command "bash big_vision/run_tpu.sh"
 ```
+以上命令将自动完成：
 
-## Download and prepare TFDS datasets
+✅ 将代码同步到所有 TPU 主机；
 
-We recommend preparing `tfds` data locally as described above and then uploading
-the data to `Google Cloud` bucket. However, if you prefer, the datasets which
-do not require manual downloads can be prepared automatically using a TPU
-machine as described below. Note that TPU machines have only 100 GB of disk
-space, and multihost TPU slices do not allow for external disks to be attached
-in a write mode, so the instructions below may not work for preparing large
-datasets. As yet another alternative, we provide instructions
+⚙️ 运行安装脚本 run_tpu.sh，在所有主机上配置 JAX、Flax、TFDS 等依赖；
+
+💡 使每个 TPU 节点准备好运行分布式训练任务。
+
+## Download and prepare TFDS datasets(下载与准备 TFDS 数据集)
+
+我们推荐按照前文介绍的方式，
+先在本地准备好 `tfds` 数据集，然后再将其上传到 `Google Cloud Bucket（云存储桶）`。
+
+不过，如果你希望直接在 TPU 机器上完成数据准备，
+对于那些不需要手动下载的数据集，可以使用以下方法自动生成。 
+
+⚠️ 注意事项：
+
+TPU 虚拟机的磁盘空间仅为 100 GB；
+
+多主机 TPU 切片（multihost TPU slice） 不支持以写入模式挂载外部磁盘；
+
+因此，下面的方法不适用于体积较大的数据集（如 ImageNet）。 
+
+作为替代方案，我们还提供了在仅使用 CPU 的 GCP 虚拟机上准备 TFDS 数据的说明。
 [on how to prepare `tfds` data on CPU-only GCP machine](#preparing-tfds-data-on-a-standalone-gcp-cpu-machine).
 
-Specifically, the seven TFDS datasets used during evaluations will be generated
-under `~/tensorflow_datasets` on TPU machine with this command:
+在 TPU 机器上执行以下命令，即可在 `~/tensorflow_datasets` 目录下自动下载并预处理以下七个数据集：:
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=0 --command "TFDS_DATA_DIR=~/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.tools.download_tfds_datasets cifar10 cifar100 oxford_iiit_pet oxford_flowers102 cars196 dtd uc_merced"
 ```
 
-You can then copy the datasets to GS bucket, to make them accessible to all TPU workers.
+执行以下命令，将生成的 ~/tensorflow_datasets 文件夹上传至云端，
+这样所有 TPU 主机（workers）都能共享访问这些数据：
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=0 --command "rm -r ~/tensorflow_datasets/downloads && gsutil cp -r ~/tensorflow_datasets gs://$GS_BUCKET_NAME"
 ```
 
-If you want to integrate other public or custom datasets, i.e. imagenet2012,
-please follow [the official guideline](https://www.tensorflow.org/datasets/catalog/overview).
+如果你希望使用其他公开数据集或自定义数据集（例如 imagenet2012），
+请参考 TensorFlow 官方指南： [the official guideline](https://www.tensorflow.org/datasets/catalog/overview).
 
-## Pre-trained models
+## Pre-trained models(预训练模型)
 
-For the full list of pre-trained models check out the `load` function defined in
-the same module as the model code. And for example config on how to use these
-models, see `configs/transfer.py`.
+要查看所有可用的预训练模型列表，
+请检查与模型代码同模块中的 `load` 函数。
 
-## Run the transfer script on TPU VMs
+如果想了解如何在配置中使用这些预训练模型，
+可以参考示例配置文件：`configs/transfer.py`。
 
-The following command line fine-tunes a pre-trained `vit-i21k-augreg-b/32` model
-on `cifar10` dataset.
+## Run the transfer script on TPU VMs(在 TPU 虚拟机上运行迁移学习)
+
+以下命令演示了如何在 cifar10 数据集上
+对一个预训练的 vit-i21k-augreg-b/32 模型进行微调（fine-tuning）：
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all --command "TFDS_DATA_DIR=gs://$GS_BUCKET_NAME/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.train --config big_vision/configs/transfer.py:model=vit-i21k-augreg-b/32,dataset=cifar10,crop=resmall_crop --workdir gs://$GS_BUCKET_NAME/big_vision/workdir/`date '+%m-%d_%H%M'` --config.lr=0.03"
 ```
+该命令会：
 
-## Run the train script on TPU VMs
+从 Google Cloud Storage (GCS) 加载数据集；
 
-To train your own big_vision models on a large dataset,
-e.g. `imagenet2012` ([prepare the TFDS dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012)),
-run the following command line.
+使用 ViT-B/32 模型（预训练于 ImageNet21k + AugReg）；
+
+在 CIFAR-10 上进行迁移学习；
+
+并将训练结果与日志保存到指定的 GCS 目录中。
+
+## Run the train script on TPU VMs(在 TPU 上从头训练模型)
+
+如果你希望在大规模数据集（例如 `imagenet2012`）上从零开始训练 `big_vision` 模型，
+请先准备 TFDS 格式的数据集 ([prepare the TFDS dataset](https://www.tensorflow.org/datasets/catalog/imagenet2012)),
+然后运行以下命令：
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all --command "TFDS_DATA_DIR=gs://$GS_BUCKET_NAME/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.train --config big_vision/configs/bit_i1k.py  --workdir gs://$GS_BUCKET_NAME/big_vision/workdir/`date '+%m-%d_%H%M'`"
 ```
 
-## FSDP training.
+这将使用 BiT（Big Transfer） 训练配置，
+在 TPU 集群上进行大规模模型训练。
 
-`big_vision` supports flexible parameter and model sharding strategies.
-Currently, we support a popular FSDP sharding via a simple config change, see [this config example](big_vision/configs/transfer.py).
-For example, to run FSDP finetuning of a pretrained ViT-L model, run the following command (possible adjusting batch size depending on your hardware):
+## FSDP training(FSDP 分布式训练)
+
+`big_vision` 支持多种灵活的参数和模型分片（sharding）策略。
+目前可通过简单的配置选项启用 FSDP（Fully Sharded Data Parallel） 分布式训练。
+相关配置示例可参考： [this config example](big_vision/configs/transfer.py).
+例如，要在 oxford_iiit_pet 数据集上使用 FSDP 对预训练的 ViT-L 模型进行微调，
+可以运行以下命令（可根据硬件调整批量大小）：
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all --command "TFDS_DATA_DIR=gs://$GS_BUCKET_NAME/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.train --config big_vision/configs/transfer.py:model=vit-i21k-augreg-l/16,dataset=oxford_iiit_pet,crop=resmall_crop,fsdp=True,batch_size=256 --workdir gs://$GS_BUCKET_NAME/big_vision/workdir/`date '+%m-%d_%H%M'` --config.lr=0.03"
 ```
 
-## Image-text training with SigLIP.
+## Image-text training with SigLIP(图像-文本联合训练)
 
-A minimal example that uses public `coco` captions data:
+以下是一个使用公开 COCO captions 数据进行图像-文本联合训练的最小示例：
 
 ```
 gcloud compute tpus tpu-vm ssh $NAME --zone=$ZONE --worker=all --command "TFDS_DATA_DIR=gs://$GS_BUCKET_NAME/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.trainers.proj.image_text.siglip --config big_vision/configs/proj/image_text/siglip_lit_coco.py --workdir gs://$GS_BUCKET_NAME/big_vision/`date '+%Y-%m-%d_%H%M'`"
 ```
 
+该命令会在 TPU 上运行 SigLIP 模型，
+实现类似 CLIP 的多模态（图像-文本）联合训练。
 
+## Sometimes useful gcloud commands(一些常用的 gcloud 命令)
 
-## Sometimes useful gcloud commands
+- 删除 TPU 机器： `gcloud compute tpus tpu-vm delete $NAME --zone $ZONE`
+- 删除所有主机上的 big_vision 相关文件夹：`gcloud compute tpus tpu-vm ssh $NAME --zone $ZONE --worker=all --command 'rm -rf ~/big_vision ~/bv_venv'`
 
-- Destroy the TPU machines: `gcloud compute tpus tpu-vm delete $NAME --zone $ZONE`
-- Remove all big_vision-related folders on all hosts: `gcloud compute tpus tpu-vm ssh $NAME --zone $ZONE --worker=all --command 'rm -rf ~/big_vision ~/bv_venv'`
+## Preparing `tfds` data on a standalone GCP CPU machine.(在独立的 GCP CPU 机器上准备 tfds 数据)
 
-## Preparing `tfds` data on a standalone GCP CPU machine.
-
-First create a new machine and a disk (feel free to adjust exact machine type and disk settings/capacity):
+首先，创建一个仅使用 CPU 的虚拟机和一个存储磁盘（可以根据需要调整机器类型、磁盘大小等设置）：
 
 ```
 export NAME_CPU_HOST=<A name of a CPU-only machine>
@@ -423,24 +463,24 @@ gcloud compute instances create $NAME_CPU_HOST --machine-type c3-standard-22 --z
 gcloud compute disks create $NAME_DISK --size 1000GB --zone $ZONE --type pd-balanced
 ```
 
-Now attach the disk to the newly create machine:
+现在，将磁盘附加到刚创建的机器上：
 
 ```
 gcloud compute instances attach-disk $NAME_CPU_HOST --disk $NAME_DISK --zone $ZONE
 ```
 
-Next, `ssh` to the machine `gcloud compute ssh $NAME_CPU_HOST --zone=$ZONE` and
-[follow instructions to format and mount the disk](https://cloud.google.com/compute/docs/disks/format-mount-disk-linux).
-Let's assume it was mounted to `/mnt/disks/tfds`.
+接下来，使用命令`gcloud compute ssh $NAME_CPU_HOST --zone=$ZONE` 登录到该机器，并按照格式化和挂载磁盘的官方说明
+[follow instructions to format and mount the disk](https://cloud.google.com/compute/docs/disks/format-mount-disk-linux)进行操作
+我们假设磁盘被挂载在路径 `/mnt/disks/tfds`.
 
-Almost there, now clone and set up `big_vision`:
+快完成了，现在克隆并配置 `big_vision`:
 
 ```
 gcloud compute ssh $NAME_CPU_HOST --zone=$ZONE --command "git clone https://github.com/google-research/big_vision.git && cd big_vision && sh big_vision/run_tpu.sh"
 ```
 
-Finally, prepare the dataset (e.g. `coco_captions`) using the utility script and
-copy the result to you google cloud bucket:
+最后，使用工具脚本准备数据集（例如 `coco_captions`），
+并将结果复制到你的 Google Cloud 存储桶中：
 
 ```
 gcloud compute ssh $NAME_CPU_HOST --zone=$ZONE --command "cd big_vision && TFDS_DATA_DIR=/mnt/disks/tfds/tensorflow_datasets bash big_vision/run_tpu.sh big_vision.tools.download_tfds_datasets coco_captions"
@@ -448,16 +488,13 @@ gcloud compute ssh $NAME_CPU_HOST --zone=$ZONE --command "rm -rf /mnt/disks/tfds
 ```
 
 
-# ViT baseline
+# ViT baseline(ViT 基线)
 
-We provide a well-tuned ViT-S/16 baseline in the config file named
-`vit_s16_i1k.py`. It achieves 76.5% accuracy on ImageNet validation split in
-90 epochs of training, being a strong and simple starting point for research
-on the ViT models.
+我们在配置文件 vit_s16_i1k.py 中提供了一个经过良好调优的 `ViT-S/16` 基线模型。 它在 ImageNet 验证集上经过 90 个训练周期后，达到了 76.5% 的准确率，
+是一个强大而简洁的 ViT 模型研究起点。
 
-Please see our [arXiv note](https://arxiv.org/abs/2205.01580) for more details
-and if this baseline happens to by useful for your research, consider citing
-
+请参阅我们的论文 [arXiv note](https://arxiv.org/abs/2205.01580) 以获取更多细节，
+如果该基线模型对你的研究有所帮助，请引用如下文献：
 ```
 @article{vit_baseline,
   url = {https://arxiv.org/abs/2205.01580},
